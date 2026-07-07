@@ -79,23 +79,32 @@ BluAttackZoneTable = {
 -- blu: blu attack zone -> neutral attack zone -> red attack zone
 
 -- defines cus i dont like strings cus my spelling is awful cus i dont know how to read im illiterate
-local NORTH = "North"
-local CENTER = "Center"
-local SOUTH = "South"
+local NORTH              = "North"
+local CENTER             = "Center"
+local SOUTH              = "South"
 
-local REDTEAM = "Red"
-local BLUTEAM = "Blu"
-local NEUTRALTEAM = "Neutral"
+local RED_TEAM           = "Red"
+local BLU_TEAM           = "Blu"
+local NEUTRAL_TEAM       = "Neutral"
 
-local PATROLTARGET = "PatrolTarget"
-local PUSHERTARGET = "PusherTarget"
-local PLANESPAWNZONE = "PlaneSpawnZone"
-local GROUNDSPAWNZONE = "GroundSpawnZone"
+local PATROL_TARGET      = "PatrolTarget"
+local PUSHER_TARGET      = "PusherTarget"
+local PLANE_SPAWN_ZONE   = "PlaneSpawnZone"
+local GROUND_SPAWN_ZONE  = "GroundSpawnZone"
 
-local PATROLLER = "Patroller"
-local PUSHER = "Pusher"
-local PLANES = "Planes"
-local MAXPLANES = "MaxPlanes"
+local PATROLLER          = "Patroller"
+local PUSHER             = "Pusher"
+local PLANES             = "Planes"
+local MAX_PLANES         = "MaxPlanes"
+local MAX_GROUND         = "MaxGround"
+
+local PLANE_TYPE         = "PlaneType"
+local START_SPEED        = "StartSpeed"
+local ALLOWED_PLANES     = "AllowedPlanes"
+
+-- fun fact i just learned that i didnt have do do any of this var define stuff cus i literally started lua like today
+-- turns out you can just name things in tables and then call them by name, boy that would have been nice to know like an hour ago
+-- still gonna keep it
 
 local function index2position(index)
 	if index == 1 then
@@ -122,7 +131,7 @@ end
 -- fight waypoint chain getters, param: team, north/south/center
 local function getAttackZoneChain(team, position)
 	OutputChain = {BluAttackZoneTable[2], NeutralAttackZoneTable[2], RedAttackZoneTable[2]}
-	if team == REDTEAM then
+	if team == RED_TEAM then
 		if position == NORTH then
 			OutputChain = {RedAttackZoneTable[1], NeutralAttackZoneTable[1], BluAttackZoneTable[1]}
 		elseif position == CENTER then
@@ -130,7 +139,7 @@ local function getAttackZoneChain(team, position)
 		elseif position == SOUTH then
 			OutputChain = {RedAttackZoneTable[3], NeutralAttackZoneTable[3], BluAttackZoneTable[3]}
 		end
-	elseif team == BLUTEAM then
+	elseif team == BLU_TEAM then
 		if position == NORTH then
 			OutputChain = {BluAttackZoneTable[1], NeutralAttackZoneTable[1], RedAttackZoneTable[1]}
 		elseif position == CENTER then
@@ -144,23 +153,23 @@ end
 
 -- master index table, multidimensional, handles spawn index, zone index for patrollers and pushers, and other stuff, for each team!
 local MasterIndexTable = {
-	[REDTEAM] = {
-		[PATROLTARGET] = 1,
-		[PUSHERTARGET] = 1,
-		[PLANESPAWNZONE] = 1,
-		[GROUNDSPAWNZONE] = 1,
-		[PLANETYPE] = 1,
+	[RED_TEAM] = {
+		[PATROL_TARGET] = 1,
+		[PUSHER_TARGET] = 1,
+		[PLANE_SPAWN_ZONE] = 1,
+		[GROUND_SPAWN_ZONE] = 1,
+		[PLANE_TYPE] = 1,
 	},
-	[BLUTEAM] = {
-		[PATROLTARGET] = 1,
-		[PUSHERTARGET] = 1,
-		[PLANESPAWNZONE] = 1,
-		[GROUNDSPAWNZONE] = 1,
-		[PLANETYPE] = 1, -- handled by a different function, but still needs to be here for the sake of the getPorperOutput function
+	[BLU_TEAM] = {
+		[PATROL_TARGET] = 1,
+		[PUSHER_TARGET] = 1,
+		[PLANE_SPAWN_ZONE] = 1,
+		[GROUND_SPAWN_ZONE] = 1,
+		[PLANE_TYPE] = 1, -- handled by a different function, but still needs to be here for the sake of the getPorperOutput function
 	}
 }
 
--- returns a zone using Skeb-Porper algorithm
+-- returns a zone-index pair simplex using Skeb-Porper algorithm
 local function getPorperOutput(team, kind)
 	local index = MasterIndexTable[team][kind]
 	local masterIndexTable[team][kind] = index + 1
@@ -170,28 +179,28 @@ local function getPorperOutput(team, kind)
 	-- now get the proper zone table
 	local tableToUse = {}
 	-- zone where planes spawn
-	if kind == PLANESPAWNZONE then
-		if team == REDTEAM then
+	if kind == PLANE_SPAWN_ZONE then
+		if team == RED_TEAM then
 			tableToUse = RedGoalTable
-		elseif team == BLUTEAM then
+		elseif team == BLU_TEAM then
 			tableToUse = BluGoalTable
 		end
 	-- zone where patrollers target
-	elseif kind == PATROLTARGET then
-		if team == REDTEAM then
+	elseif kind == PATROL_TARGET then
+		if team == RED_TEAM then
 			tableToUse = RedFrontlineTable
-		elseif team == BLUTEAM then
+		elseif team == BLU_TEAM then
 			tableToUse = BluFrontlineTable
 		end
 	-- zone where pushers target
-	elseif kind == PUSHERTARGET then
+	elseif kind == PUSHER_TARGET then
 		tableToUse = NeutralMiddleTable
 	end
 	-- zone where ground units spawn
-	if kind == GROUNDSPAWNZONE then
-		if team == REDTEAM then
+	if kind == GROUND_SPAWN_ZONE then
+		if team == RED_TEAM then
 			tableToUse = RedSpawnTable
-		elseif team == BLUTEAM then
+		elseif team == BLU_TEAM then
 			tableToUse = BluSpawnTable
 		end
 	end
@@ -204,13 +213,29 @@ local function getPorperOutput(team, kind)
 		masterIndexTable[team][kind] = 1
 		index = 1
 	end
-	return tableToUse[index]
+	local outZone = tableToUse[index]
+	local outIndex = index
+	return {
+		PorperZone = outZone,
+		PorperIndex = outIndex,
+	}
 end
 
 
 ----------------------- GRUND UNIT STUFF
+-- RedforBrigade1, BluforBrigade1
 
--- todoL this
+SpawnRedForBrigade1 = SPAWN
+	:New( "RedForBrigade1" )
+	:InitKeepUnitNames()
+	:InitLimit( 10 , 20 )
+	:SpawnScheduled( 5, .5 )
+
+SpawnBluForBrigade1 = SPAWN
+	:New( "BluForBrigade1" )
+	:InitKeepUnitNames()
+	:InitLimit( 10 , 20 )
+	:SpawnScheduled( 5, .5 )
 
 ---------`------------ AIRPLANE STUFF
 ---- SPAWN TEMPLATES
@@ -229,76 +254,110 @@ SpawnMirageF1CE = SPAWN
 -- gamerules which is kinda like a config but more esoteric and less user friendly, but makes me feel like a better coder
 
 local GameRules = {
-	[MAXPLANES] = {
+	[MAX_PLANES] = {
 		[PATROLLER] = {
-			[REDTEAM] = 10,
-			[BLUTEAM] = 10,
+			[RED_TEAM] = 10,
+			[BLU_TEAM] = 10,
 		},
 		[PUSHER] = {
-			[REDTEAM] = 10,
-			[BLUTEAM] = 10,
+			[RED_TEAM] = 10,
+			[BLU_TEAM] = 10,
 		},
 	},
-	[STARTSPEED] = {
+	[MAX_GROUND] = {
+		[RED_TEAM] = 10,
+		[BLU_TEAM] = 10,
+	},
+	[START_SPEED] = {
 		[PATROLLER] = {
-			[REDTEAM] = 1000,
-			[BLUTEAM] = 1000, -- kph, tho i dont know how fast planes go cus i dont play dcs or really know what the planes are
+			[RED_TEAM] = 1000,
+			[BLU_TEAM] = 1000, -- kph, tho i dont know how fast planes go cus i dont play dcs or really know what the planes are
 		},
 		[PUSHER] = {
-			[REDTEAM] = 1200,
-			[BLUTEAM] = 1200, -- kph, and i still dont know how fast they go, but probably wanna go faster???
+			[RED_TEAM] = 1200,
+			[BLU_TEAM] = 1200, -- kph, and i still dont know how fast they go, but probably wanna go faster???
 		}
 	},
-	[PLANETYPES] = {
+	[ALLOWED_PLANES] = {
 		[PATROLLER] = {
-			[REDTEAM] = {
+			[RED_TEAM] = {
 				SpawnMig21BS,
 			},
-			[BLUTEAM] = {
+			[BLU_TEAM] = {
 				SpawnMirageF1CE,
 			}
 		},
 	}
 }
 
--- to be filled with plane groups
-local PlaneGroups = {
-	[REDTEAM] = {
+-- gets filled with all the things that are spawned, yeah
+local VehicleGroups = {
+	[RED_TEAM] = {
 		[PATROLLER] = {
 			[PLANES] = {},
 		},
 		[PUSHER] = {
 			[PLANES] = {},
-		}
+		},
+		[GROUND] = {
+			[NORTH] = {},
+			[CENTER] = {},
+			[SOUTH] = {},
+		},
 	},
-	[BLUTEAM] = {
+	[BLU_TEAM] = {
 		[PATROLLER] = {
 			[PLANES] = {},
 		},
 		[PUSHER] = {
 			[PLANES] = {},
+		},
+		[GROUND] = {
+			[NORTH] = {},
+			[CENTER] = {},
+			[SOUTH] = {},
 		},
 	},
 }
 
--- spawn, give orders, and store the spawn groups in the PlaneGroups table
-for team, teamData in pairs(PlaneGroups) do
+-- spawn, give orders, and store the spawn groups in the VehicleGroups table
+for team, teamData in pairs(VehicleGroups) do
 	for role, roleData in pairs(teamData) do
-		for i=1, roleData.Max do
-			local spawnZone = getPorperOutput(team, PLANESPAWNZONE)
-			local targetZone = getPorperOutput(team, PATROLTARGET)
-			local planeTemplate = GameRules[PLANETYPES][role][team][getPorperOutput(team, PLANETYPE)]
-			local spawnGroup = planeTemplate:SpawnInZone(spawnZone, true)
-			-- give the spawn group a patrol route, and set its speed
-			spawnGroup:PatrolZones( { targetZone }, PatrolSpeed )
-			table.insert(roleData.Planes, spawnGroup)
-		end
+		if role == GROUND then
+			for position, positionData in pairs(roleData) do
+				local spawnGroundZone = getPorperOutput(team, GROUND_SPAWN_ZONE).PorperZone
+				local targetGroundZone = getPorperOutput(team, PUSHER_TARGET).PorperZone
+				for i=1, GameRules[MAX_GROUND][team] do
+					local spawnGroundGroup
+					if team == RED_TEAM then
+						spawnGroundGroup = SpawnRedForBrigade1
+					elseif team == BLU_TEAM then
+						spawnGroundGroup = SpawnBluForBrigade1
+					end
+					local actuallySpawnGroundGroup = spawnGroundGroup:SpawnInZone(spawnGroundZone, true)
+					-- give the spawn group a patrol route, and set its speed
+					actuallySpawnGroundGroup:PatrolZones( { targetGroundZone }, 10 )
+					table.insert(positionData, actuallySpawnGroundGroup)
+				end
+			end
+		else
+			local PatrolSpeed = GameRules[START_SPEED][role][team]
+		for i=1, GameRules[MAX_PLANES][role][team] do
+				local spawnPlaneZone = getPorperOutput(team, PLANE_SPAWN_ZONE).PorperZone
+				local targetPatrolZone = getPorperOutput(team, PATROL_TARGET).PorperZone
+				local allowedPlanes = GameRules[ALLOWED_PLANES][role][team]
+				local spawnPlaneGroup = allowedPlanes[math.random(1, #allowedPlanes)]
+				local actuallySpawnPlaneGroup = spawnPlaneGroup:SpawnInZone(spawnPlaneZone, true)
+				-- give the spawn group a patrol route, and set its speed
+				actuallySpawnPlaneGroup:PatrolZones( { targetPatrolZone }, PatrolSpeed )
+				table.insert(roleData[PLANES], actuallySpawnPlaneGroup)
+			end
 	end
 end
 
 -- scoar board
 local ScoreBoard = {
-	[REDTEAM] = 0,
-	[BLUTEAM] = 0,
+	[RED_TEAM] = 0,
+	[BLU_TEAM] = 0,
 }
 
